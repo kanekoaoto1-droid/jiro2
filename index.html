@@ -1,0 +1,206 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>二郎カロリー管理</title>
+
+<style>
+body {
+  font-family: system-ui, -apple-system;
+  background: #f2f2f2;
+  padding: 12px;
+}
+h1, h2 { text-align: center; }
+.card {
+  background: #fff;
+  padding: 12px;
+  margin-bottom: 12px;
+  border-radius: 8px;
+}
+label { display: block; margin-top: 8px; }
+input, select, button {
+  width: 100%;
+  padding: 10px;
+  font-size: 16px;
+}
+button {
+  background: #c62828;
+  color: #fff;
+  border: none;
+  border-radius: 6px;
+  margin-top: 10px;
+}
+.record {
+  border-bottom: 1px solid #ddd;
+  padding: 8px 0;
+}
+.warn {
+  color: #d32f2f;
+  font-weight: bold;
+  text-align: center;
+}
+.actions button {
+  background: #555;
+  margin-top: 6px;
+}
+.small { font-size: 13px; color: #555; }
+</style>
+</head>
+
+<body>
+
+<h1>🍜 二郎カロリー管理</h1>
+<div id="warning" class="warn"></div>
+
+<div class="card">
+  <label>日付 <input type="date" id="date"></label>
+  <label>店名 <input type="text" id="shop"></label>
+
+  <label>麺量
+    <select id="noodle">
+      <option value="100">100g</option>
+      <option value="150">150g</option>
+      <option value="200" selected>200g</option>
+      <option value="250">250g</option>
+      <option value="300">300g</option>
+      <option value="350">350g</option>
+      <option value="400">400g</option>
+    </select>
+  </label>
+
+  <label>野菜
+    <select id="veg">
+      <option value="0">なし</option>
+      <option value="100">マシ</option>
+      <option value="150">マシマシ</option>
+    </select>
+  </label>
+
+  <label>アブラ
+    <select id="fat">
+      <option value="0">なし</option>
+      <option value="100">マシ</option>
+      <option value="300">マシマシ</option>
+    </select>
+  </label>
+
+  <label><input type="checkbox" id="pork"> 豚マシ</label>
+  <label><input type="checkbox" id="egg"> ゆで卵</label>
+
+  <button id="save" type="button">記録する</button>
+</div>
+
+<div class="card">
+  <h2>履歴</h2>
+  <div id="history"></div>
+</div>
+
+<script>
+const noodleCal = {
+  100: 450, 150: 675, 200: 950, 250: 1200,
+  300: 1500, 350: 1700, 400: 1900
+};
+
+const dateInput = document.getElementById("date");
+const shopInput = document.getElementById("shop");
+const noodleInput = document.getElementById("noodle");
+const vegInput = document.getElementById("veg");
+const fatInput = document.getElementById("fat");
+const porkInput = document.getElementById("pork");
+const eggInput = document.getElementById("egg");
+const saveBtn = document.getElementById("save");
+const historyDiv = document.getElementById("history");
+const warningDiv = document.getElementById("warning");
+
+dateInput.valueAsDate = new Date();
+let editIndex = null;
+
+function load() {
+  return JSON.parse(localStorage.getItem("jiro") || "[]");
+}
+function save(data) {
+  localStorage.setItem("jiro", JSON.stringify(data));
+}
+function calcCal() {
+  let cal = noodleCal[noodleInput.value];
+  cal += Number(vegInput.value) + Number(fatInput.value);
+  if (porkInput.checked) cal += 150;
+  if (eggInput.checked) cal += 70;
+  return cal;
+}
+function checkWarning(data) {
+  const weekAgo = new Date();
+  weekAgo.setDate(weekAgo.getDate() - 7);
+  const cnt = data.filter(r => new Date(r.date) >= weekAgo).length;
+  warningDiv.textContent = cnt >= 2 ? "⚠ 今週すでに二郎2杯以上" : "";
+}
+function render() {
+  const data = load();
+  historyDiv.innerHTML = "";
+  data.forEach((r, i) => {
+    const d = document.createElement("div");
+    d.className = "record";
+    d.innerHTML = `
+      <strong>${r.date}</strong>（${r.shop || "店名なし"}）<br>
+      麺${r.noodle}g / ${r.cal} kcal<br>
+      <span class="small">野菜:${r.veg} アブラ:${r.fat}</span>
+      <div class="actions">
+        <button onclick="edit(${i})">編集</button>
+        <button onclick="del(${i})">削除</button>
+      </div>
+    `;
+    historyDiv.appendChild(d);
+  });
+  checkWarning(data);
+}
+
+saveBtn.onclick = () => {
+  const data = load();
+  const record = {
+    date: dateInput.value,
+    shop: shopInput.value,
+    noodle: noodleInput.value,
+    veg: vegInput.value,
+    fat: fatInput.value,
+    pork: porkInput.checked,
+    egg: eggInput.checked,
+    cal: calcCal()
+  };
+
+  if (editIndex !== null) {
+    data[editIndex] = record;
+    editIndex = null;
+    saveBtn.textContent = "記録する";
+  } else {
+    data.unshift(record);
+  }
+  save(data);
+  shopInput.value = "";
+  render();
+};
+
+window.del = i => {
+  const data = load();
+  data.splice(i, 1);
+  save(data);
+  render();
+};
+window.edit = i => {
+  const r = load()[i];
+  dateInput.value = r.date;
+  shopInput.value = r.shop;
+  noodleInput.value = r.noodle;
+  vegInput.value = r.veg;
+  fatInput.value = r.fat;
+  porkInput.checked = r.pork;
+  eggInput.checked = r.egg;
+  editIndex = i;
+  saveBtn.textContent = "更新する";
+};
+
+render();
+</script>
+
+</body>
+</html>
