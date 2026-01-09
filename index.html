@@ -2,175 +2,170 @@
 <html lang="ja">
 <head>
 <meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>ラーメン管理</title>
 <style>
-body{font-family:sans-serif;background:#f4f4f4;padding:20px}
-.card{background:#fff;padding:15px;border-radius:10px;margin-bottom:15px}
-.hidden{display:none}
-button{padding:6px 10px;border:none;border-radius:6px;cursor:pointer}
-.save{background:#4caf50;color:#fff}
-.edit{background:#2196f3;color:#fff}
-.delete{background:#f44336;color:#fff}
-.history{border-bottom:1px solid #ddd;padding:8px 0}
+body {
+  font-family: system-ui, -apple-system, BlinkMacSystemFont;
+  margin: 0;
+  padding: 12px;
+  background: #f7f7f7;
+}
+h1 { font-size: 20px; }
+section {
+  background: #fff;
+  padding: 12px;
+  margin-bottom: 12px;
+  border-radius: 8px;
+}
+label { display: block; margin-top: 6px; }
+button {
+  margin-top: 10px;
+  width: 100%;
+  padding: 10px;
+  font-size: 16px;
+}
+.record {
+  border-bottom: 1px solid #ddd;
+  padding: 6px 0;
+}
+.small { font-size: 12px; color: #555; }
+.warning { color: red; font-weight: bold; }
 </style>
 </head>
+
 <body>
 
-<h1>🍜 ラーメン管理</h1>
+<h1>🍜 ラーメン記録</h1>
 
-<div class="card">
-<select id="type">
-  <option value="jiro">二郎系</option>
-  <option value="iekei">家系</option>
-  <option value="shachirin">鯱輪</option>
-  <option value="other">その他</option>
-</select>
+<section>
+<label>店名（手入力）
+<input id="shop" placeholder="例：ラーメン二郎三田本店、吉村家"></label>
 
-<!-- 二郎系 -->
-<div id="jiroBox">
-  <input id="jiroShop" placeholder="店名"><br>
-  麺量：
-  <select id="jiroNoodle"></select><br>
-  ヤサイ：
-  <select id="jiroVeg">
-    <option>そのまま</option><option>マシ</option><option>マシマシ</option>
-  </select>
-  アブラ：
-  <select id="jiroOil">
-    <option>そのまま</option><option>マシ</option><option>マシマシ</option>
-  </select>
-</div>
+<label>ジャンル
+<select id="type" onchange="updateOptions()">
+<option value="jiro">二郎系</option>
+<option value="iekei">家系</option>
+<option value="shachirin">鯱輪</option>
+</select></label>
 
-<!-- 家系 -->
-<div id="iekeiBox" class="hidden">
-  <input id="iekeiShop" placeholder="店名"><br>
-  サイズ：
-  <select id="iekeiSize">
-    <option value="0">普通</option>
-    <option value="150">大盛</option>
-  </select>
-  ライス：
-  <input type="number" id="riceCount" min="0" max="10" value="0"> 杯
-</div>
+<div id="options"></div>
 
-<!-- 鯱輪 -->
-<div id="shachiBox" class="hidden">
-  <select id="shachiMenu">
-    <option value="900">赤まぜそば</option>
-    <option value="950">旨辛にんにくらーめん</option>
-  </select><br>
-  <label><input type="checkbox" id="cheese">チーズ</label>
-  <label><input type="checkbox" id="oomori">大盛</label>
-  <label><input type="checkbox" id="chashu">チャーシュー</label>
-  <label><input type="checkbox" id="shachiRice">ライス</label>
-</div>
+<button onclick="save()">記録する</button>
+</section>
 
-<!-- その他 -->
-<div id="otherBox" class="hidden">
-  <input id="otherMemo" placeholder="メモ">
-</div>
-
-<br>
-<button class="save" id="saveBtn">保存</button>
-</div>
-
-<div class="card">
-<h2>📜 履歴（まとめ表示）</h2>
-<div id="history"></div>
-</div>
+<section>
+<h2>📊 履歴</h2>
+<div id="log"></div>
+</section>
 
 <script>
-/* 初期化 */
-const noodleSel=document.getElementById("jiroNoodle");
-for(let i=100;i<=500;i+=50) noodleSel.innerHTML+=`<option>${i}</option>`;
+const logs = JSON.parse(localStorage.getItem("ramenLogs") || "[]");
 
-const boxes={jiro:jiroBox,iekei:iekeiBox,shachirin:shachiBox,other:otherBox};
-type.onchange=()=>{
-  Object.values(boxes).forEach(b=>b.classList.add("hidden"));
-  boxes[type.value].classList.remove("hidden");
-};
+function updateOptions() {
+  const type = document.getElementById("type").value;
+  let html = "";
 
-/* データ */
-let logs=JSON.parse(localStorage.getItem("ramenLog")||"[]");
-let editIndex=null;
+  if (type === "jiro") {
+    html = `
+    <label>麺量
+    <select id="men">
+      <option value="300">少なめ</option>
+      <option value="400">普通</option>
+      <option value="500">大</option>
+    </select></label>
+    <label><input type="checkbox" id="abura"> アブラ</label>
+    <label><input type="checkbox" id="yasai"> ヤサイ</label>`;
+  }
 
-/* カロリー計算 */
-function calc(e){
-  if(e.type==="jiro"){
-    let c=e.noodle*3;
-    if(e.veg==="マシ")c+=50;
-    if(e.veg==="マシマシ")c+=100;
-    if(e.oil==="マシ")c+=80;
-    if(e.oil==="マシマシ")c+=160;
-    return c;
+  if (type === "iekei") {
+    html = `
+    <label>サイズ
+    <select id="size">
+      <option value="700">普通</option>
+      <option value="850">大盛</option>
+    </select></label>
+    <label>ライス杯数
+    <input type="number" id="rice" value="0" min="0"></label>`;
   }
-  if(e.type==="iekei"){
-    return 700+Number(e.size)+e.rice*250;
+
+  if (type === "shachirin") {
+    html = `
+    <label>メニュー
+    <select id="menu">
+      <option value="800">旨辛にんにくラーメン</option>
+      <option value="850">赤まぜそば</option>
+    </select></label>
+    <label><input type="checkbox" id="big"> 大盛</label>
+    <label><input type="checkbox" id="cheese"> チーズ</label>
+    <label><input type="checkbox" id="chashu"> チャーシュー</label>
+    <label><input type="checkbox" id="rice2"> ライス</label>`;
   }
-  if(e.type==="shachirin"){
-    return Number(e.menu)
-      +(e.cheese?100:0)+(e.oomori?150:0)
-      +(e.chashu?200:0)+(e.rice?250:0);
-  }
-  return 0;
+
+  document.getElementById("options").innerHTML = html;
 }
 
-/* 保存 */
-saveBtn.onclick=()=>{
-  let e={type:type.value,time:new Date().toLocaleString()};
-  if(e.type==="jiro"){
-    e.shop=jiroShop.value;
-    e.noodle=Number(jiroNoodle.value);
-    e.veg=jiroVeg.value;
-    e.oil=jiroOil.value;
-  }
-  if(e.type==="iekei"){
-    e.shop=iekeiShop.value;
-    e.size=iekeiSize.value;
-    e.rice=Number(riceCount.value);
-  }
-  if(e.type==="shachirin"){
-    e.menu=shachiMenu.value;
-    e.cheese=cheese.checked;
-    e.oomori=oomori.checked;
-    e.chashu=chashu.checked;
-    e.rice=shachiRice.checked;
-  }
-  if(e.type==="other") e.memo=otherMemo.value;
+function save() {
+  const shop = document.getElementById("shop").value || "未記入";
+  const type = document.getElementById("type").value;
+  let cal = 0;
+  let detail = "";
 
-  e.cal=calc(e);
+  if (type === "jiro") {
+    cal += Number(document.getElementById("men").value);
+    if (abura.checked) cal += 100;
+    if (yasai.checked) cal += 50;
+    detail = "二郎系";
+  }
 
-  if(editIndex!==null){logs[editIndex]=e;editIndex=null;}
-  else logs.push(e);
+  if (type === "iekei") {
+    cal += Number(document.getElementById("size").value);
+    cal += Number(document.getElementById("rice").value) * 250;
+    detail = "家系";
+  }
 
-  localStorage.setItem("ramenLog",JSON.stringify(logs));
+  if (type === "shachirin") {
+    cal += Number(document.getElementById("menu").value);
+    if (big.checked) cal += 150;
+    if (cheese.checked) cal += 120;
+    if (chashu.checked) cal += 200;
+    if (rice2.checked) cal += 250;
+    detail = "鯱輪";
+  }
+
+  logs.push({
+    date: new Date().toISOString().slice(0,10),
+    shop, detail, cal
+  });
+
+  localStorage.setItem("ramenLogs", JSON.stringify(logs));
   render();
-};
+}
 
-/* 表示 */
-function render(){
-  history.innerHTML="";
-  logs.forEach((l,i)=>{
-    history.innerHTML+=`
-    <div class="history">
-      ${l.time}｜${l.type}｜${l.shop||l.memo||""}<br>
-      <b>${l.cal} kcal</b>
-      <button class="edit" onclick="edit(${i})">編集</button>
-      <button class="delete" onclick="del(${i})">削除</button>
+function render() {
+  const area = document.getElementById("log");
+  area.innerHTML = "";
+  const last7 = logs.filter(l =>
+    (new Date() - new Date(l.date)) / 86400000 < 7
+  );
+
+  if (last7.length >= 2) {
+    area.innerHTML += `<div class="warning">⚠ 今週ラーメン多くない？</div>`;
+  }
+
+  logs.slice().reverse().forEach(l => {
+    area.innerHTML += `
+    <div class="record">
+      <b>${l.shop}</b> (${l.detail})<br>
+      ${l.cal} kcal<br>
+      <span class="small">${l.date}</span>
     </div>`;
   });
 }
-function del(i){
-  logs.splice(i,1);
-  localStorage.setItem("ramenLog",JSON.stringify(logs));
-  render();
-}
-function edit(i){
-  editIndex=i;
-  type.value=logs[i].type;
-  type.onchange();
-}
+
+updateOptions();
 render();
 </script>
+
 </body>
 </html>
